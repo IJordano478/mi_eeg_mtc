@@ -54,22 +54,6 @@ rclcpp::node_interfaces::NodeBaseInterface::SharedPtr MTCTaskNode::getNodeBaseIn
 
 void MTCTaskNode::setupPlanningScene()
 {
-  // moveit_msgs::msg::CollisionObject object;
-  // object.id = "object";
-  // object.header.frame_id = "world";
-  // object.primitives.resize(1);
-  // object.primitives[0].type = shape_msgs::msg::SolidPrimitive::CYLINDER;
-  // object.primitives[0].dimensions = { 0.1, 0.02 };
-
-  // geometry_msgs::msg::Pose pose;
-  // pose.position.x = 0.5;
-  // pose.position.y = -0.25;
-  // pose.orientation.w = 1.0;
-  // object.pose = pose;
-
-  // moveit::planning_interface::PlanningSceneInterface psi;
-  // psi.applyCollisionObject(object);
-
   moveit_msgs::msg::CollisionObject object;
   object.id = "object";
   object.header.frame_id = "world";
@@ -86,45 +70,55 @@ void MTCTaskNode::setupPlanningScene()
   moveit::planning_interface::PlanningSceneInterface psi;
   psi.applyCollisionObject(object);
 
+  // moveit_msgs::msg::CollisionObject object2;
+  // object2.id = "object2";
+  // object2.header.frame_id = "world";
+  // object2.primitives.resize(3);
+  // object2.primitives[0].type = shape_msgs::msg::SolidPrimitive::BOX;
+  // object2.primitives[0].dimensions = { 0.045, 0.045 , 0.045};
 
-  // double cube_xyz_locations[4][3] = {
-  //   {1, 1, 0},
-  //   {2, 2, 0},
-  //   {3, 3, 0},
-  //   {4, 4, 0},
-  // };
-  // std::string cube_names[4] = {"CubeA", "CubeB", "CubeC", "CubeD"};
+  // geometry_msgs::msg::Pose pose2;
+  // pose2.position.x = 0.8;
+  // pose2.position.y = -0.25;
+  // pose2.orientation.w = 1.0;
+  // object2.pose = pose2;
+  // psi.applyCollisionObject(object2);
 
-  // moveit::planning_interface::PlanningSceneInterface psi;
-  // for (int i=0; i<std::size(cube_names); i++){
-  //   moveit_msgs::msg::CollisionObject object;
-  //   object.id = cube_names[i];
-  //   object.header.frame_id = "world";
-  //   shape_msgs::msg::SolidPrimitive primitive;
+  double cube_xyz_locations[4][3] = {
+      {0.5, -0.5, 0.0},
+      {0.6, -0.5, 0.0},
+      {0.6, -0.6, 0.0},
+      {0.5, -0.6, 0.0},
+  };
+  std::string cube_names[4] = {"CubeA", "CubeB", "CubeC", "CubeD"};
 
-  //   // Define the size of the box in meters
-  //   primitive.type = primitive.BOX;
-  //   primitive.dimensions.resize(3);
-  //   primitive.dimensions[primitive.BOX_X] = 0.045;
-  //   primitive.dimensions[primitive.BOX_Y] = 0.045;
-  //   primitive.dimensions[primitive.BOX_Z] = 0.045;
+  std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
 
-  //   // Define the pose of the box (relative to the frame_id)
-  //   geometry_msgs::msg::Pose box_pose;
-  //   box_pose.orientation.w = 1.0;  // We can leave out the x, y, and z components of the quaternion since they are initialized to 0
-  //   box_pose.position.x = 0.5;
-  //   box_pose.position.y = -0.25;
-  //   // box_pose.position.z = 0.25;
+  for (int i = 0; i < std::size(cube_names); i++)
+  {
+    std::cout << "Adding cube: " << cube_names[i] << " at "
+              << cube_xyz_locations[i][0] << ", "
+              << cube_xyz_locations[i][1] << std::endl;
 
-  //   geometry_msgs::msg::Pose pose;
-  //   pose.position.x = cube_xyz_locations[i][0];
-  //   pose.position.y = cube_xyz_locations[i][1];
-  //   pose.orientation.w = 1.0;
-  //   object.pose = pose;
+    moveit_msgs::msg::CollisionObject object;
+    object.id = cube_names[i];
+    object.header.frame_id = "world";
 
-    
-  //   psi.applyCollisionObject(object);
-  // }
+    object.primitives.resize(1); // Only one primitive per object
+    object.primitives[0].type = shape_msgs::msg::SolidPrimitive::BOX;
+    object.primitives[0].dimensions = {0.045, 0.045, 0.045};
+
+    geometry_msgs::msg::Pose pose;
+    pose.position.x = cube_xyz_locations[i][0];
+    pose.position.y = cube_xyz_locations[i][1];
+    pose.orientation.w = 1.0;
+    object.pose = pose;
+
+    collision_objects.push_back(object); // Store the object in the vector
+  }
+
+  // Apply all objects at once
+  psi.applyCollisionObjects(collision_objects);
 }
 
 void MTCTaskNode::doTask()
