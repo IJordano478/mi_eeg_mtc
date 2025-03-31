@@ -16,6 +16,7 @@
 #endif
 
 #include <string>
+#include <map>
 
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("mtc_tutorial");
 namespace mtc = moveit::task_constructor;
@@ -34,13 +35,33 @@ public:
 private:
   // Compose an MTC task from a series of stages.
   mtc::Task createTask();
-  mtc::Task createPickTask(int);
-  mtc::Task createPlaceTask();
-  // mtc::Task task_;
-  // mtc::Task task2_;
-  mtc::Task task_3;
+  mtc::Task createPickTask(std::string);
+  mtc::Task createPlaceTask(std::string);
+  mtc::Task task_get_A;
+  mtc::Task task_get_B;
+  mtc::Task task_get_C;
+  mtc::Task task_get_D;
+  mtc::Task task_place_A;
+  mtc::Task task_place_B;
+  mtc::Task task_place_C;
+  mtc::Task task_place_D;
+  double tile_xyz_locations[4][3]= {
+    {0.5, 0.3, 0.0},
+    {0.6, 0.3, 0.0},
+    {0.6, 0.4, 0.0},
+    {0.5, 0.4, 0.0},
+  };
+  std::map<std::string, int> object_index_map = {
+    { "TileA", 0 },
+    { "TileB", 1 },
+    { "TileC", 2 },
+    { "TileD", 3 },
+    { "CubeA", 0 },
+    { "CubeB", 1 },
+    { "CubeC", 2 },
+    { "CubeD", 3 },
+};
   rclcpp::Node::SharedPtr node_;
-  // mtc::Stage* attach_object_stage = nullptr;  // Forward attach_object_stage to place pose generator
 };
 
 MTCTaskNode::MTCTaskNode(const rclcpp::NodeOptions& options)
@@ -64,7 +85,8 @@ void MTCTaskNode::setupPlanningScene()
 
   geometry_msgs::msg::Pose pose;
   pose.position.x = 0.5;
-  pose.position.y = -0.25;
+  pose.position.y = -0.2;
+  pose.position.z = 0.045/2;
   pose.orientation.w = 1.0;
   object.pose = pose;
 
@@ -86,11 +108,12 @@ void MTCTaskNode::setupPlanningScene()
   // psi.applyCollisionObject(object2);
 
   double cube_xyz_locations[4][3] = {
-      {0.5, -0.5, 0.0},
-      {0.6, -0.5, 0.0},
-      {0.6, -0.6, 0.0},
-      {0.5, -0.6, 0.0},
+      {0.5, -0.3, 0.0},
+      {0.6, -0.3, 0.0},
+      {0.6, -0.4, 0.0},
+      {0.5, -0.4, 0.0},
   };
+  
   std::string cube_names[4] = {"CubeA", "CubeB", "CubeC", "CubeD"};
 
   std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
@@ -112,6 +135,33 @@ void MTCTaskNode::setupPlanningScene()
     geometry_msgs::msg::Pose pose;
     pose.position.x = cube_xyz_locations[i][0];
     pose.position.y = cube_xyz_locations[i][1];
+    pose.position.z = 0.045/2;
+    pose.orientation.w = 1.0;
+    object.pose = pose;
+
+    collision_objects.push_back(object); // Store the object in the vector
+  }
+
+
+  std::string tile_names[4] = {"TileA", "TileB", "TileC", "TileD"};
+  for (int i = 0; i < std::size(tile_names); i++)
+  {
+    std::cout << "Adding cube: " << tile_names[i] << " at "
+              << tile_xyz_locations[i][0] << ", "
+              << tile_xyz_locations[i][1] << std::endl;
+
+    moveit_msgs::msg::CollisionObject object;
+    object.id = tile_names[i];
+    object.header.frame_id = "world";
+
+    object.primitives.resize(1); // Only one primitive per object
+    object.primitives[0].type = shape_msgs::msg::SolidPrimitive::BOX;
+    object.primitives[0].dimensions = {0.05, 0.05, 0.01};
+
+    geometry_msgs::msg::Pose pose;
+    pose.position.x = tile_xyz_locations[i][0];
+    pose.position.y = tile_xyz_locations[i][1];
+    pose.position.z = -0.01;
     pose.orientation.w = 1.0;
     object.pose = pose;
 
@@ -125,11 +175,27 @@ void MTCTaskNode::setupPlanningScene()
 void MTCTaskNode::doTask()
 {
   // task_ = createTask();
-  mtc::Task task_ = createPickTask(1);
+  mtc::Task task_get_A = createPickTask("CubeA");
+  mtc::Task task_get_B = createPickTask("CubeB");
+  mtc::Task task_get_C = createPickTask("CubeC");
+  mtc::Task task_get_D = createPickTask("CubeD");
+
+  // task_ = createTask();
+  mtc::Task task_place_A = createPlaceTask("TileA");
+  mtc::Task task_place_B = createPlaceTask("TileB");
+  mtc::Task task_place_C = createPlaceTask("TileC");
+  mtc::Task task_place_D = createPlaceTask("TileD");
 
   try
   {
-    task_.init();
+    task_get_A.init();
+    task_get_B.init();
+    task_get_C.init();
+    task_get_D.init();
+    task_place_A.init();
+    task_place_B.init();
+    task_place_C.init();
+    task_place_D.init();
   }
   catch (mtc::InitStageException& e)
   {
@@ -137,14 +203,61 @@ void MTCTaskNode::doTask()
     return;
   }
 
-  if (!task_.plan(5 /* max_solutions */))
+  if (!task_get_A.plan(5 /* max_solutions */))
+  {RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");return;}
+  task_get_A.introspection().publishSolution(*task_get_A.solutions().front());
+
+  if (!task_get_B.plan(5 /* max_solutions */))
+  {RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");return;}
+  task_get_B.introspection().publishSolution(*task_get_B.solutions().front());
+
+  if (!task_get_C.plan(5 /* max_solutions */))
+  {RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");return;}
+  task_get_C.introspection().publishSolution(*task_get_C.solutions().front());
+
+  if (!task_get_D.plan(5 /* max_solutions */))
+  {RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");return;}
+  task_get_D.introspection().publishSolution(*task_get_D.solutions().front());
+
+  if (!task_place_A.plan(5 /* max_solutions */))
+  {RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");return;}
+  task_place_A.introspection().publishSolution(*task_place_A.solutions().front());
+
+  if (!task_place_B.plan(5 /* max_solutions */))
+  {RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");return;}
+  task_place_B.introspection().publishSolution(*task_place_B.solutions().front());
+
+  if (!task_place_C.plan(5 /* max_solutions */))
+  {RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");return;}
+  task_place_C.introspection().publishSolution(*task_place_C.solutions().front());
+
+  if (!task_place_D.plan(5 /* max_solutions */))
+  {RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");return;}
+  task_place_D.introspection().publishSolution(*task_place_D.solutions().front());
+  
+
+  auto result = task_get_A.execute(*task_get_A.solutions().front());
+  if (result.val != moveit_msgs::msg::MoveItErrorCodes::SUCCESS)
   {
-    RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");
+    RCLCPP_ERROR_STREAM(LOGGER, "Task execution failed");
     return;
   }
-  task_.introspection().publishSolution(*task_.solutions().front());
 
-  auto result = task_.execute(*task_.solutions().front());
+  result = task_get_A.execute(*task_get_A.solutions().front());
+  if (result.val != moveit_msgs::msg::MoveItErrorCodes::SUCCESS)
+  {
+    RCLCPP_ERROR_STREAM(LOGGER, "Task execution failed");
+    return;
+  }
+
+  result = task_get_A.execute(*task_place_A.solutions().front());
+  if (result.val != moveit_msgs::msg::MoveItErrorCodes::SUCCESS)
+  {
+    RCLCPP_ERROR_STREAM(LOGGER, "Task execution failed");
+    return;
+  }
+
+  result = task_get_A.execute(*task_get_A.solutions().front());
   if (result.val != moveit_msgs::msg::MoveItErrorCodes::SUCCESS)
   {
     RCLCPP_ERROR_STREAM(LOGGER, "Task execution failed");
@@ -153,58 +266,58 @@ void MTCTaskNode::doTask()
 
 
 
-  mtc::Task task2_ = createPlaceTask();
-  try
-  {
-    task2_.init();
-  }
-  catch (mtc::InitStageException& e)
-  {
-    RCLCPP_ERROR_STREAM(LOGGER, e);
-    return;
-  }
+  // mtc::Task task2_ = createPlaceTask();
+  // try
+  // {
+  //   task2_.init();
+  // }
+  // catch (mtc::InitStageException& e)
+  // {
+  //   RCLCPP_ERROR_STREAM(LOGGER, e);
+  //   return;
+  // }
 
-  if (!task2_.plan(5 /* max_solutions */))
-  {
-    RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");
-    return;
-  }
-  task2_.introspection().publishSolution(*task2_.solutions().front());
+  // if (!task2_.plan(5 /* max_solutions */))
+  // {
+  //   RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");
+  //   return;
+  // }
+  // task2_.introspection().publishSolution(*task2_.solutions().front());
 
-  auto result2 = task2_.execute(*task2_.solutions().front());
-  if (result2.val != moveit_msgs::msg::MoveItErrorCodes::SUCCESS)
-  {
-    RCLCPP_ERROR_STREAM(LOGGER, "Task execution failed");
-    return;
-  }
+  // auto result2 = task2_.execute(*task2_.solutions().front());
+  // if (result2.val != moveit_msgs::msg::MoveItErrorCodes::SUCCESS)
+  // {
+  //   RCLCPP_ERROR_STREAM(LOGGER, "Task execution failed");
+  //   return;
+  // }
 
-  moveit::planning_interface::PlanningSceneInterface psi;
-  auto objs = psi.getObjects();
-  auto obj = objs["object"];
-  RCLCPP_INFO(LOGGER, "Object is at: x=%f y=%f z=%f",
-              obj.pose.position.x, obj.pose.position.y, obj.pose.position.z);
-  try
-  {
-    mtc::Task task_ = createPickTask(2);
-    RCLCPP_INFO(LOGGER, "Created pick task");
-    task_.init();
-    RCLCPP_INFO(LOGGER, "Init");
-    if (!task_.plan(5))
-    {
-      RCLCPP_ERROR(LOGGER, "Re-pick planning failed");
-      return;
-    }
-    RCLCPP_INFO(LOGGER, "Planned");
-    task_.introspection().publishSolution(*task_.solutions().front());
-    RCLCPP_INFO(LOGGER, "Published");
-    task_.execute(*task_.solutions().front());
-    RCLCPP_INFO(LOGGER, "Executed");
-  }
-  catch (const mtc::InitStageException &e)
-  {
-    RCLCPP_ERROR(LOGGER, "Init failed on re-pick: %s", e.what());
-  }
-  RCLCPP_INFO(LOGGER, "Done");
+  // moveit::planning_interface::PlanningSceneInterface psi;
+  // auto objs = psi.getObjects();
+  // auto obj = objs["object"];
+  // RCLCPP_INFO(LOGGER, "Object is at: x=%f y=%f z=%f",
+  //             obj.pose.position.x, obj.pose.position.y, obj.pose.position.z);
+  // try
+  // {
+  //   mtc::Task task_ = createPickTask(2);
+  //   RCLCPP_INFO(LOGGER, "Created pick task");
+  //   task_.init();
+  //   RCLCPP_INFO(LOGGER, "Init");
+  //   if (!task_.plan(5))
+  //   {
+  //     RCLCPP_ERROR(LOGGER, "Re-pick planning failed");
+  //     return;
+  //   }
+  //   RCLCPP_INFO(LOGGER, "Planned");
+  //   task_.introspection().publishSolution(*task_.solutions().front());
+  //   RCLCPP_INFO(LOGGER, "Published");
+  //   task_.execute(*task_.solutions().front());
+  //   RCLCPP_INFO(LOGGER, "Executed");
+  // }
+  // catch (const mtc::InitStageException &e)
+  // {
+  //   RCLCPP_ERROR(LOGGER, "Init failed on re-pick: %s", e.what());
+  // }
+  // RCLCPP_INFO(LOGGER, "Done");
 
   return;
 }
@@ -233,11 +346,11 @@ int main(int argc, char** argv)
   return 0;
 }
 
-mtc::Task MTCTaskNode::createPickTask(int i)
+mtc::Task MTCTaskNode::createPickTask(std::string cubename)
 {
   mtc::Task task;
   // task.stages()->setName("pick block_A task");
-  task.stages()->setName(std::to_string(i) + " pick block_A task");
+  task.stages()->setName("pick " + cubename + " task");
   task.loadRobotModel(node_);
 
   const auto& arm_group_name = "panda_arm";
@@ -310,7 +423,7 @@ mtc::Task MTCTaskNode::createPickTask(int i)
       stage->properties().configureInitFrom(mtc::Stage::PARENT);
       stage->properties().set("marker_ns", "grasp_pose");
       stage->setPreGraspPose("open");
-      stage->setObject("object");
+      stage->setObject(cubename);
       // stage->setAngleDelta(M_PI / 12);
       stage->setAngleDelta(M_PI);
       stage->setMonitoredStage(current_state_ptr);  // Hook into current state
@@ -340,7 +453,7 @@ mtc::Task MTCTaskNode::createPickTask(int i)
     {
       auto stage =
           std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (hand,object)");
-      stage->allowCollisions("object",
+      stage->allowCollisions(cubename,
                              task.getRobotModel()
                                  ->getJointModelGroup(hand_group_name)
                                  ->getLinkModelNamesWithCollisionGeometry(),
@@ -355,12 +468,12 @@ mtc::Task MTCTaskNode::createPickTask(int i)
       grasp->insert(std::move(stage));
     }
 
-    {
-      auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("attach object");
-      stage->attachObject("object", hand_frame);
-      // attach_object_stage = stage.get();
-      grasp->insert(std::move(stage));
-    }
+    // {
+    //   auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("attach object");
+    //   stage->attachObject(cubename, hand_frame);
+    //   // attach_object_stage = stage.get();
+    //   grasp->insert(std::move(stage));
+    // }
 
     {
       // clang-format off
@@ -392,10 +505,10 @@ mtc::Task MTCTaskNode::createPickTask(int i)
   return task;
 }
 
-mtc::Task MTCTaskNode::createPlaceTask()
+mtc::Task MTCTaskNode::createPlaceTask(std::string tilename)
 {
   mtc::Task task;
-  task.stages()->setName("place block_A task");
+  task.stages()->setName("place " + tilename + " task");
   task.loadRobotModel(node_);
 
   const auto& arm_group_name = "panda_arm";
@@ -419,12 +532,18 @@ mtc::Task MTCTaskNode::createPlaceTask()
   cartesian_planner->setMaxAccelerationScalingFactor(1.0);
   cartesian_planner->setStepSize(.01);
 
+  // Get the index from the map and then extract position
+  int index = object_index_map.at(tilename);
+  const auto& position = tile_xyz_locations[index];
   geometry_msgs::msg::PoseStamped target_pose_msg;
   target_pose_msg.header.frame_id = "world";  // Change to world frame
-  target_pose_msg.pose.position.x = 0.5; // Set target position
-  target_pose_msg.pose.position.y = 0.25;
-  target_pose_msg.pose.position.z = 0.0;  // Place on table height
+  target_pose_msg.pose.position.x = position[0];
+  target_pose_msg.pose.position.y = position[1];
+  target_pose_msg.pose.position.z = position[2];
   target_pose_msg.pose.orientation.w = 1.0;
+
+  RCLCPP_INFO(LOGGER, "Placing '%s' at position: x=%.3f, y=%.3f, z=%.3f",
+              tilename.c_str(), position[0], position[1], position[2]);
 
   {
     auto stage_move_to_place = std::make_unique<mtc::stages::Connect>(
@@ -478,7 +597,7 @@ mtc::Task MTCTaskNode::createPlaceTask()
       auto stage = std::make_unique<mtc::stages::GeneratePlacePose>("generate place pose");
       stage->properties().configureInitFrom(mtc::Stage::PARENT);
       stage->properties().set("marker_ns", "place_pose");
-      stage->setObject("object");
+      stage->setObject(hand_frame);
       stage->setPose(target_pose_msg);
       stage->setMonitoredStage(current_state_ptr);  // Hook into current state
       //stage->setMonitoredStage(attach_object_stage);  // Hook into attach_object_stage
@@ -487,7 +606,7 @@ mtc::Task MTCTaskNode::createPlaceTask()
       auto wrapper = std::make_unique<mtc::stages::ComputeIK>("place pose IK", std::move(stage));
       wrapper->setMaxIKSolutions(5);
       wrapper->setMinSolutionDistance(1.0);
-      wrapper->setIKFrame("object");
+      wrapper->setIKFrame(hand_frame);
       wrapper->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group" });
       wrapper->properties().configureInitFrom(mtc::Stage::INTERFACE, { "target_pose" });
       place->insert(std::move(wrapper));
@@ -502,7 +621,7 @@ mtc::Task MTCTaskNode::createPlaceTask()
 
     {
       auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("forbid collision (hand,object)");
-      stage->allowCollisions("object",
+      stage->allowCollisions(tilename,
                              task.getRobotModel()
                                  ->getJointModelGroup(hand_group_name)
                                  ->getLinkModelNamesWithCollisionGeometry(),
@@ -510,11 +629,11 @@ mtc::Task MTCTaskNode::createPlaceTask()
       place->insert(std::move(stage));
     }
 
-    {
-      auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("detach object");
-      stage->detachObject("object", hand_frame);
-      place->insert(std::move(stage));
-    }
+    // {
+    //   auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("detach object");
+    //   stage->detachObject("object", hand_frame);
+    //   place->insert(std::move(stage));
+    // }
 
     {
       auto stage = std::make_unique<mtc::stages::MoveRelative>("retreat", cartesian_planner);

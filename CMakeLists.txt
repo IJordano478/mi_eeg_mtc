@@ -32,9 +32,21 @@ ament_target_dependencies(
   "rclcpp"
 )
 
+add_executable(mi_eeg_mtc_2 src/mi_eeg_mtc_2.cpp)
+target_include_directories(mi_eeg_mtc_2 PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(mi_eeg_mtc_2 PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+ament_target_dependencies(
+  mi_eeg_mtc_2
+  "moveit_task_constructor_core"
+  "rclcpp"
+)
+
 install(TARGETS 
   mi_eeg_mtc
   mi_eeg_mtc_demo
+  mi_eeg_mtc_2
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
